@@ -308,7 +308,7 @@ with st.sidebar:
     st.write(f"R$ {total_obras_equip:,.2f}")
     
     st.caption(f"Ressarcimento Infraestrutura UFSM ({int(taxa_ufsm*100)}%)", 
-               help="Regra da UFSM: O ressarcimento é de 5% para custeios até R$ 200.000,00 e de 8% para custeios acima de R$ 200.000,00. Obras e Equipamentos (Anexo I) são totalmente isentos dessa base de cálculo.")
+               help="Regra da UFSM: O ressarcimento é de 5% para custeios de até 200 mil reais, e passa a ser de 8% para custeios acima de 200 mil reais. Obras e Equipamentos (Anexo I) são totalmente isentos desta taxa.")
     st.write(f"R$ {valor_infra_ufsm:,.2f}")
     
     tipo_calculo = "Cálculo Direto" if fundacao_escolhida in ["FATEC", "FDMS"] else "Gross-up"
