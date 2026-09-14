@@ -164,7 +164,6 @@ total_geral_final = subtotal_projeto + valor_infra_ufsm + valor_taxa_fundacao
 # RENDERIZAÇÃO DA BARRA LATERAL (Cálculos)
 # ==========================================
 with st.sidebar:
-    st.image("https://upload.wikimedia.org/wikipedia/commons/thumb/1/11/UFSM_bras%C3%A3o_e_logotipo.png/320px-UFSM_bras%C3%A3o_e_logotipo.png", width=150)
     st.title("Detalhamento Financeiro")
     
     st.caption("Custos Diretos (Equipe + Despesas)")
