@@ -1,27 +1,45 @@
 import streamlit as st
 import openpyxl
 from io import BytesIO
+import pdfplumber
+import re
 
+# ==========================================
+# CONFIGURAÇÃO DA PÁGINA
+# ==========================================
 st.set_page_config(page_title="Gerador Financeiro UFSM", page_icon="💰", layout="wide")
 
 # ==========================================
-# DADOS FIXOS DAS TABELAS DO EXCEL
+# LISTAS E DADOS FIXOS
 # ==========================================
 LISTA_DIARIAS = ["Diárias no país", "Diárias no exterior", "Auxílio para desenvolvimento de estudos e pesquisas", "Diárias a colaboradores eventuais no país"]
 LISTA_PF = ["Direitos autorais", "Serviços técnicos profissionais", "Serviços de limpeza e conservação", "Serviços de apoio administrativo, técnico e operacional", "Obrigações Tributárias e Contributivas (cota patronal 20%)"]
 LISTA_PASSAGENS = ["Passagens para o país", "Passagens para o exterior", "Locação de meios de transportes", "Locomoção urbana", "Outras despesas com locomoção"]
 LISTA_OBRAS = ["Estudos e Projetos", "Obras em andamento", "Instalações", "Almoxarifado de obras", "Outras obras e instalações"]
 LISTA_PJ = [
-    "Assinaturas de periódicos e anuidades", "Direitos autorais", "Serviços técnicos profissionais", "Manutenção de software", "Locação de imóveis", "Locação de softwares", "Locação de máquinas e equipamentos", "Locação de bens Mov. Out. naturezas e intangíveis", "Manutenção e conservação de bens imóveis", "Manutenção e conservação de máquinas e equipamentos", "Serviço de estacionamento de veículos", "Manutenção e conservação de veículos", "Exposições, congressos e conferências", "Confecção de uniformes", "Desenvolvimento de software", "Suporte de infraestrutura de TI", "Suporte a usuários de TI", "Hospedagem de sistemas", "Locação de equipamentos de processamento de dados", "Fornecimento de alimentação", "Serviços de energia elétrica", "Serviços de água e esgoto", "Serviços de comunicação em geral", "Serviços médico-hospitalar, odontológicos e laboratoriais", "Serviços de análises e pesquisas científicas", "Serviços de tecnologia da informação", "Serviços de telecomunicações", "Serviços de áudio, vídeo e foto", "Serviços de produção industrial", "Serviços gráficos e editoriais", "Seguros em geral", "Confecção de material de acondicionamento e embalagem", "Vale-transporte", "Fretes e transportes de encomendas", "Serviço de apoio administrativo, técnico e operacional", "Hospagens", "Serviços de cópias e reprodução de documentos", "Serviços de publicidade legal", "Aquisição de softwares sob encomenda", "Manutenção e conservação de equip. de processamento de dados", "Comunicação de dados", "Testes e confecções de placas relacionadas ao objeto do projeto", "Outros serviços de terceiros pessoa jurídica"
+    "Assinaturas de periódicos e anuidades", "Direitos autorais", "Serviços técnicos profissionais", "Manutenção de software", "Locação de imóveis", "Locação de softwares", "Locação de máquinas e equipamentos", "Locação de bens Mov. Out. naturezas e intangíveis", "Manutenção e conservação de bens imóveis", "Manutenção e conservação de máquinas e equipamentos", "Serviço de estacionamento de veículos", "Manutenção e conservação de veículos", "Exposições, congressos e conferências", "Confecção de uniformes", "Desenvolvimento de software", "Suporte de infraestrutura de TI", "Suporte a usuários de TI", "Hospedagem de sistemas", "Locação de equipamentos de processamento de dados", "Fornecimento de alimentação", "Serviços de energia elétrica", "Serviços de água e esgoto", "Serviços de comunicação em geral", "Serviços médico-hospitalar, odontológicos e laboratoriais", "Serviços de análises e pesquisas científicas", "Serviços de tecnologia da informação", "Serviços de telecomunicações", "Serviços de áudio, vídeo e foto", "Serviços de produção industrial", "Serviços gráficos e editoriais", "Seguros em geral", "Confecção de material de acondicionamento e embalagem", "Vale-transporte", "Fretes e transportes de encomendas", "Serviço de apoio administrativo, técnico e operacional", "Hospedagens", "Serviços de cópias e reprodução de documentos", "Serviços de publicidade legal", "Aquisição de softwares sob encomenda", "Manutenção e conservação de equip. de processamento de dados", "Comunicação de dados", "Testes e confecções de placas relacionadas ao objeto do projeto", "Outros serviços de terceiros pessoa jurídica"
 ]
 LISTA_CONSUMO = [
     "Combustíveis e lubrificantes automotivos", "Gás e outros materiais engarrafados", "Alimentos para animais", "Gêneros de alimentação", "Animais para pesquisa e abate", "Material farmacológico", "Material odontológico", "Material químico", "Material educativo e esportivo", "Material de expediente", "Material de processamento de dados", "Materiais e medicamentos para uso veterinário", "Material de acondicionamento e embalagem", "Material de copa e cozinha", "Material de limpeza e produtos de higienização", "Uniformes, tecidos e aviamentos", "Material para manutenção de bens imóveis/instalações", "Material para manutenção de bens móveis", "Material elétrico e eletrônico", "Material de proteção e segurança", "Material para áudio, vídeo e foto", "Material para comunicações", "Sementes, mudas de plantas e insumos", "Material para produção industrial", "Material laboratorial", "Material hospitalar", "Material para manutenção de veículos", "Material biológico", "Material para utilização em gráfica", "Ferramentas", "Material de sinalização visual e outros", "Material bibliográfico", "Aquisição de software - produto", "Material para divulgação", "Materiais de Consumo para utilização no laboratório", "Outros Materiais de Consumo"
 ]
 
-# Inicialização de memória
+FONTES_OPCOES = [
+    "de investimento em pesquisa, previsto no projeto de prestação de serviços abaixo:",
+    "do repasse de terceiros, interessados em resultados da pesquisa",
+    "do pagamento de clientes, pelos serviços oferecidos pelo projeto",
+    "da venda de subprodutos decorrentes de atividades práticas acadêmicas da UFSM",
+    "da venda de produtos produzidos através do próprio projeto",
+    "de patrocínios e taxas de inscrição em evento(s)",
+    "de investimento de recursos próprios, através do orçamento da UFSM",
+    "do compartilhamento de infraestrutura",
+    "do repasse de outras fontes de recursos orçamentários da União (TED)"
+]
+
+# Inicialização de memória do Streamlit
 if 'eq_vinc' not in st.session_state: st.session_state.eq_vinc = []
 if 'eq_nao_vinc' not in st.session_state: st.session_state.eq_nao_vinc = []
 if 'equip' not in st.session_state: st.session_state.equip = []
+if 'nomes_pdf' not in st.session_state: st.session_state.nomes_pdf = []
 
 col_config_dinheiro = {
     "Valor Parcela": st.column_config.NumberColumn(format="R$ %.2f"),
@@ -29,50 +47,101 @@ col_config_dinheiro = {
     "Valor Unitário": st.column_config.NumberColumn(format="R$ %.2f")
 }
 
-# Variáveis para a matemática
+# Zera as variáveis de total a cada recarregamento da tela
 total_base_infra = 0.0 
 total_obras_equip = 0.0
 
+
 # ==========================================
-# BARRA LATERAL FIXA E SELETOR DE FUNDAÇÃO
+# SELETOR DE FUNDAÇÃO (TOPO DA BARRA LATERAL)
 # ==========================================
-# Como o Streamlit lê de cima para baixo, pegamos a escolha da fundação logo no início
 fundacao_escolhida = st.sidebar.selectbox(
     "🏛️ Selecione a Fundação",
     ["FATEC", "FAURGS", "FUNDEP", "FDMS"],
-    help="As taxas e cálculos são ajustados de acordo com as regras de cada fundação."
+    help="As taxas e cálculos são ajustados automaticamente de acordo com as regras de cada fundação."
 )
-
 st.sidebar.divider()
+
 
 # ==========================================
 # ÁREA PRINCIPAL
 # ==========================================
 st.title("💰 Gerador de Dados Financeiros (Plano de Trabalho)")
-st.write("Preencha as informações financeiras abaixo. Acompanhe os cálculos na barra lateral.")
 
-# 1. EQUIPES
+# --- PASSO 0: LEITOR DE PDF (OPCIONAL) ---
+st.markdown("### 📄 Passo 0: Autopreenchimento de Nomes (Opcional)")
+arquivo_pdf = st.file_uploader("Insira o Relatório do Projeto (.PDF) para extrair os nomes da equipe automaticamente:", type=["pdf"])
+
+if arquivo_pdf:
+    with st.spinner("Lendo participantes do PDF..."):
+        try:
+            texto_limpo = ""
+            with pdfplumber.open(arquivo_pdf) as pdf:
+                for page in pdf.pages:
+                    ext = page.extract_text()
+                    if ext: texto_limpo += ext + "\n"
+            
+            m_inicio = re.search(r'PARTICIPANTES', texto_limpo, re.IGNORECASE)
+            if m_inicio:
+                idx = m_inicio.end()
+                end_idx = len(texto_limpo)
+                for f in [r'UNIDADES VINCULADAS\s*\n', r'CLASSIFICAÇÕES', r'REGIÕES DE ATUAÇÃO']:
+                    mf = re.search(f, texto_limpo[idx:], re.IGNORECASE)
+                    if mf:
+                        pos = idx + mf.start()
+                        if pos < end_idx: end_idx = pos
+                bloco = texto_limpo[idx:end_idx].strip()
+                
+                matches = re.finditer(r'(\d{5,15})\s*-\s*([A-ZÀ-Ÿ\s\']+?)\s*(?=[A-ZÀ-Ÿ][a-zà-ÿ]|UNIDADES VINCULADAS|CLASSIFICAÇÕES|$)', bloco)
+                nomes = []
+                for match in matches:
+                    nome_limpo = re.sub(r'\s+', ' ', match.group(2).strip()).strip()
+                    corte_idx = len(nome_limpo)
+                    for p in ["VÍNCULO", "VINCULO", "CURSO", "LOTAÇÃO", "LOTACAO", "FUNÇÃO", "FUNCAO"]:
+                        idx_p = nome_limpo.upper().find(p)
+                        if idx_p != -1 and idx_p < corte_idx: corte_idx = idx_p
+                    nome_final = nome_limpo[:corte_idx].strip(" -/")
+                    if len(nome_final) > 2: nomes.append(nome_final)
+                
+                st.session_state.nomes_pdf = list(dict.fromkeys(nomes)) # Remove duplicatas
+                st.success(f"✅ {len(st.session_state.nomes_pdf)} participantes encontrados no PDF!")
+            else:
+                st.warning("Nenhum bloco de participantes encontrado no PDF.")
+        except Exception as e:
+            st.error(f"Erro na leitura do PDF: {e}")
+
+st.divider()
+
+# --- 1. EQUIPES ---
 st.header("1. Equipe Executora")
+opcoes_nomes = ["(Digitar nome manualmente)"] + st.session_state.nomes_pdf
+
 with st.expander("Equipe Vinculada à UFSM", expanded=True):
     with st.form("form_vinc", clear_on_submit=True):
         c1, c2 = st.columns(2)
         tipo_remun = c1.text_input("Pessoal Envolvido (Tipo de Remuneração)")
-        nome_vinc = c2.text_input("Nome do Membro")
+        nome_selecionado = c2.selectbox("Nome do Membro (Selecione do PDF ou digite)", opcoes_nomes)
+        nome_digitado = c2.text_input("Se escolheu digitar manualmente, informe o nome aqui:")
+        
         c3, c4 = st.columns(2)
         siape_mat = c3.text_input("SIAPE / Matrícula")
         cpf_vinc = c4.text_input("CPF")
+        
         c5, c6, c7 = st.columns(3)
         ch_vinc = c5.number_input("Carga Horária (Semanal)", min_value=0, step=1)
         qtd_vinc = c6.number_input("Nº de Pagamentos", min_value=1, step=1)
         valor_vinc = c7.number_input("Valor de cada Pagto (R$)", min_value=0.0, step=100.0)
         
-        if st.form_submit_button("Adicionar à Equipe Vinculada") and nome_vinc:
-            st.session_state.eq_vinc.append({
-                "Tipo Remuneração": tipo_remun, "Nome": nome_vinc, "SIAPE/MAT": siape_mat, 
-                "CPF": cpf_vinc, "Carga Horária": ch_vinc, "Nº Pagamentos": qtd_vinc,
-                "Valor Parcela": valor_vinc, "Total": valor_vinc * qtd_vinc
-            })
-            st.rerun()
+        if st.form_submit_button("Adicionar à Equipe Vinculada"):
+            nome_final = nome_digitado if nome_selecionado == "(Digitar nome manualmente)" else nome_selecionado
+            if nome_final:
+                st.session_state.eq_vinc.append({
+                    "Tipo Remuneração": tipo_remun, "Nome": nome_final, "SIAPE/MAT": siape_mat, 
+                    "CPF": cpf_vinc, "Carga Horária": ch_vinc, "Nº Pagamentos": qtd_vinc,
+                    "Valor Parcela": valor_vinc, "Total": valor_vinc * qtd_vinc
+                })
+                st.rerun()
+                
     if st.session_state.eq_vinc: 
         st.dataframe(st.session_state.eq_vinc, column_config=col_config_dinheiro, hide_index=True, use_container_width=True)
 
@@ -80,36 +149,46 @@ with st.expander("Equipe Não Vinculada"):
     with st.form("form_nao_vinc", clear_on_submit=True):
         c1, c2 = st.columns(2)
         tipo_remun_nv = c1.text_input("Pessoal Envolvido (Tipo de Remuneração)")
-        nome_nvinc = c2.text_input("Nome")
+        nome_selecionado_nv = c2.selectbox("Nome do Colaborador", opcoes_nomes)
+        nome_digitado_nv = c2.text_input("Se escolheu digitar manualmente, informe o nome aqui:")
+        
         c3, c4 = st.columns(2)
         forma_contrato = c3.text_input("Forma de Contratação (Ex: CLT, RPA)")
         cpf_nvinc = c4.text_input("CPF")
+        
         c5, c6, c7 = st.columns(3)
         ch_nvinc = c5.number_input("Carga Horária (Semanal)", min_value=0, step=1)
         qtd_nvinc = c6.number_input("Nº de Pagamentos", min_value=1, step=1)
         valor_nvinc = c7.number_input("Valor de cada Pagto (R$)", min_value=0.0, step=100.0)
         
-        if st.form_submit_button("Adicionar à Equipe Não Vinculada") and nome_nvinc:
-            st.session_state.eq_nao_vinc.append({
-                "Tipo Remuneração": tipo_remun_nv, "Nome": nome_nvinc, "Forma Contratação": forma_contrato, 
-                "CPF": cpf_nvinc, "Carga Horária": ch_nvinc, "Nº Pagamentos": qtd_nvinc,
-                "Valor Parcela": valor_nvinc, "Total": valor_nvinc * qtd_nvinc
-            })
-            st.rerun()
+        if st.form_submit_button("Adicionar à Equipe Não Vinculada"):
+            nome_final_nv = nome_digitado_nv if nome_selecionado_nv == "(Digitar nome manualmente)" else nome_selecionado_nv
+            if nome_final_nv:
+                st.session_state.eq_nao_vinc.append({
+                    "Tipo Remuneração": tipo_remun_nv, "Nome": nome_final_nv, "Forma Contratação": forma_contrato, 
+                    "CPF": cpf_nvinc, "Carga Horária": ch_nvinc, "Nº Pagamentos": qtd_nvinc,
+                    "Valor Parcela": valor_nvinc, "Total": valor_nvinc * qtd_nvinc
+                })
+                st.rerun()
+                
     if st.session_state.eq_nao_vinc: 
         st.dataframe(st.session_state.eq_nao_vinc, column_config=col_config_dinheiro, hide_index=True, use_container_width=True)
 
+# Soma Equipes na Base de Infraestrutura UFSM
 total_base_infra += sum(item["Total"] for item in st.session_state.eq_vinc)
 total_base_infra += sum(item["Total"] for item in st.session_state.eq_nao_vinc)
 
-# 2. TABELAS FIXAS
+
+# --- 2. DESPESAS E SERVIÇOS ---
 st.header("2. Despesas e Serviços")
+
 def renderizar_tabela_fixa(titulo, lista_itens, prefixo_chave):
     valores = {}
     with st.expander(titulo):
         for item in lista_itens:
-            val = st.number_input(item, min_value=0.0, step=50.0, key=f"{prefixo_chave}_{item}")
-            if val > 0: valores[item] = val
+            val = st.number_input(f"{item} (R$)", min_value=0.0, step=50.0, key=f"{prefixo_chave}_{item}")
+            if val > 0: 
+                valores[item] = val
     return valores
 
 dados_diarias = renderizar_tabela_fixa("4.2 - Diárias", LISTA_DIARIAS, "diaria")
@@ -119,14 +198,15 @@ dados_passagens = renderizar_tabela_fixa("4.5 - Passagens e Locomoção", LISTA_
 dados_consumo = renderizar_tabela_fixa("4.6 - Material de Consumo", LISTA_CONSUMO, "cons")
 dados_obras = renderizar_tabela_fixa("4.8 - Obras e Instalações (Isento de Taxa UFSM)", LISTA_OBRAS, "obras")
 
-# Soma na base tributável da UFSM
-for d in [dados_diarias, dados_pj, dados_pf, dados_passagens, dados_consumo]:
+# Soma Despesas de Custeio na base da UFSM
+for d in [dados_diarias, dados_pj, dados_pf, dados_passagens, dados_consumo]: 
     total_base_infra += sum(d.values())
 
-# Obras não pagam infra UFSM
+# Obras vão para a Base Isenta (Capital)
 total_obras_equip += sum(dados_obras.values())
 
-# 3. ANEXO I (Equipamentos) - Isentos de Taxa UFSM
+
+# --- 3. ANEXO I (Equipamentos) ---
 st.header("3. Anexo I - Material Permanente")
 with st.expander("Equipamento Permanente (Isento de Taxa UFSM)", expanded=True):
     with st.form("form_equip", clear_on_submit=True):
@@ -134,13 +214,67 @@ with st.expander("Equipamento Permanente (Isento de Taxa UFSM)", expanded=True):
         desc_eq = c1.text_input("Especificação")
         qtd_eq = c2.number_input("Quantidade", min_value=1, step=1)
         val_eq = c3.number_input("Valor Unitário (R$)", min_value=0.0, step=100.0)
+        
         if st.form_submit_button("Adicionar Equipamento") and desc_eq:
             st.session_state.equip.append({"Especificação": desc_eq, "Quantidade": qtd_eq, "Valor Unitário": val_eq, "Total": qtd_eq * val_eq})
             st.rerun()
+            
     if st.session_state.equip: 
         st.dataframe(st.session_state.equip, column_config=col_config_dinheiro, hide_index=True, use_container_width=True)
-    
+
+# Equipamentos vão para a Base Isenta (Capital)
 total_obras_equip += sum(item["Total"] for item in st.session_state.equip)
+
+st.divider()
+
+
+# --- 4. SEÇÃO 3.1 - FONTES DE RECURSOS ---
+st.header("4. Fontes e Usos (Seção 3)")
+with st.expander("3.1 - FONTES (Especificação dos Recursos)", expanded=True):
+    st.write("Marque com um 'X' (selecione) as origens do dinheiro deste projeto. O total do projeto será associado a elas.")
+    escolhas_fontes = {}
+    
+    for op in FONTES_OPCOES:
+        chk = st.checkbox(op)
+        escolhas_fontes[op] = chk
+        
+        # Condicional dinâmica para abrir campos de Título e Registro
+        if chk and "previsto no projeto de prestação de serviços abaixo" in op:
+            st.info("Informe os dados do projeto de prestação de serviços que aportará recursos:")
+            titulo_fonte = st.text_input("Título do Projeto de Prestação de Serviços (Fonte):")
+            registro_fonte = st.text_input("Nº de Registro (Fonte):")
+        else:
+            if "previsto no projeto de prestação de serviços abaixo" in op:
+                titulo_fonte = ""
+                registro_fonte = ""
+
+
+# --- 5. SEÇÃO 4 - PLANO DE APLICAÇÃO ---
+with st.expander("4 - PLANO DE APLICAÇÃO (Apenas Prestação de Serviços)", expanded=True):
+    st.write("Marque a caixa abaixo SOMENTE se este for um projeto de prestação de serviços que vai investir/aportar recursos em um outro projeto de Pesquisa, Ensino ou Extensão.")
+    aplica_recursos = st.checkbox("Este projeto receberá aportes de recursos de outro?")
+    if aplica_recursos:
+        st.info("Informe os dados do projeto de Pesquisa, Ensino ou Extensão que receberá os recursos:")
+        titulo_aplicacao = st.text_input("Título do projeto recebedor:")
+        registro_aplicacao = st.text_input("Nº de Registro do projeto recebedor:")
+    else:
+        titulo_aplicacao = ""
+        registro_aplicacao = ""
+
+
+# --- 6. SEÇÃO 6 - CRONOGRAMA DE DESEMBOLSO ---
+with st.expander("6 - CRONOGRAMA DE DESEMBOLSO", expanded=True):
+    st.write("Escolha apenas UMA opção de período e preencha os valores.")
+    tipo_cronograma = st.radio("Período de Desembolso:", ["Mensal", "Semestral", "Anual"], horizontal=True)
+    qtd_periodos = st.number_input(f"Quantidade de períodos ({tipo_cronograma.lower()}s):", min_value=1, max_value=60, value=1)
+    
+    st.write("### Preencha os valores de cada período:")
+    cronograma_dados = []
+    colunas_cronograma = st.columns(3)
+    for i in range(int(qtd_periodos)):
+        val_periodo = colunas_cronograma[i % 3].number_input(f"{tipo_cronograma} {i+1} (R$)", min_value=0.0, step=100.0, key=f"crono_{i}")
+        cronograma_dados.append({"Período": f"{tipo_cronograma} {i+1}", "Valor": val_periodo})
+
 
 # ==========================================
 # CÁLCULOS MATEMÁTICOS FINAIS
@@ -155,25 +289,30 @@ valor_infra_ufsm = total_base_infra * taxa_ufsm
 if fundacao_escolhida in ["FATEC", "FDMS"]:
     valor_taxa_fundacao = subtotal_projeto * 0.10
 else:
-    # Gross-up FAURGS/FUNDEP
+    # Gross-up para FAURGS e FUNDEP
     valor_taxa_fundacao = ((subtotal_projeto + valor_infra_ufsm) / 0.9) * 0.10
 
 total_geral_final = subtotal_projeto + valor_infra_ufsm + valor_taxa_fundacao
 
+
 # ==========================================
-# RENDERIZAÇÃO DA BARRA LATERAL (Cálculos)
+# RENDERIZAÇÃO DA BARRA LATERAL (Cálculos de 3.2 - USOS)
 # ==========================================
 with st.sidebar:
-    st.title("Detalhamento Financeiro")
+    st.title("3.2 - USOS (Resumo)")
     
-    st.caption("Custos Diretos (Equipe + Despesas)")
-    st.write(f"R$ {subtotal_projeto:,.2f}")
+    st.caption("Despesas de Custeio (Equipe + Serviços)")
+    st.write(f"R$ {total_base_infra:,.2f}")
     
-    st.caption(f"Infraestrutura UFSM ({int(taxa_ufsm*100)}%)")
+    st.caption("Despesas de Capital (Obras e Equipamentos)")
+    st.write(f"R$ {total_obras_equip:,.2f}")
+    
+    st.caption(f"Ressarcimento Infraestrutura UFSM ({int(taxa_ufsm*100)}%)", 
+               help="Regra da UFSM: O ressarcimento é de 5% para custeios até R$ 200.000,00 e de 8% para custeios acima de R$ 200.000,00. Obras e Equipamentos (Anexo I) são totalmente isentos dessa base de cálculo.")
     st.write(f"R$ {valor_infra_ufsm:,.2f}")
     
-    tipo_calculo = "Direto" if fundacao_escolhida in ["FATEC", "FDMS"] else "Gross-up"
-    st.caption(f"Taxa da Fundação ({tipo_calculo})")
+    tipo_calculo = "Cálculo Direto" if fundacao_escolhida in ["FATEC", "FDMS"] else "Gross-up"
+    st.caption(f"Despesas Operacionais {fundacao_escolhida} (10% - {tipo_calculo})")
     st.write(f"R$ {valor_taxa_fundacao:,.2f}")
     
     st.divider()
@@ -203,7 +342,9 @@ with st.sidebar:
         # Identificador para o Raichu
         ws_config = wb.create_sheet("Config_Raichu")
         ws_config.append(["Fundacao_Escolhida", fundacao_escolhida])
-
+        ws_config.append(["Cronograma_Tipo", tipo_cronograma])
+        
+        # Abas das Equipes e Tabelas Fixas
         criar_aba_dinamica("Equipe_Vinc", st.session_state.eq_vinc)
         criar_aba_dinamica("Equipe_Nao_Vinc", st.session_state.eq_nao_vinc)
         criar_aba_fixa("Diarias", dados_diarias)
@@ -214,11 +355,33 @@ with st.sidebar:
         criar_aba_fixa("Obras", dados_obras)
         criar_aba_dinamica("Anexo_1", st.session_state.equip)
 
+        # Aba de Fontes (3.1)
+        ws_fontes = wb.create_sheet("Fontes_3.1")
+        ws_fontes.append(["Fonte", "Selecionado", "Título (Se Prestação)", "Registro (Se Prestação)"])
+        for op, checked in escolhas_fontes.items():
+            if checked:
+                # Se for a opção de prestação e estiver marcada, manda os textos extras
+                if "previsto no projeto de prestação" in op:
+                    ws_fontes.append([op, "X", titulo_fonte, registro_fonte])
+                else:
+                    ws_fontes.append([op, "X", "", ""])
+
+        # Aba Plano de Aplicação (4)
+        ws_aplicacao = wb.create_sheet("Aplicacao_4")
+        ws_aplicacao.append(["Possui_Aporte", "Titulo_Recebedor", "Registro_Recebedor"])
+        if aplica_recursos:
+            ws_aplicacao.append(["Sim", titulo_aplicacao, registro_aplicacao])
+        else:
+            ws_aplicacao.append(["Nao", "", ""])
+
+        # Aba Cronograma (6)
+        criar_aba_dinamica("Cronograma_6", cronograma_dados)
+
         output = BytesIO()
         wb.save(output)
         output.seek(0)
         
-        st.success("Arquivo gerado! Envie-o para o preenchimento automático.")
+        st.success("Arquivo gerado! Envie-o para o preenchimento automático no Raichu.")
         st.download_button(
             label="📥 Baixar Dados_Financeiros.xlsx",
             data=output,
