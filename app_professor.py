@@ -40,7 +40,7 @@ FONTES_OPCOES = [
 if 'df_equipe' not in st.session_state: 
     st.session_state.df_equipe = pd.DataFrame(columns=[
         "Vinculado à UFSM?", "Tipo Remuneração", "Nome", "SIAPE ou Forma Contratação", 
-        "CPF", "Carga Horária", "Nº Pagamentos", "Valor Parcela (R$)"
+        "CPF", "Carga Horária (semanal)", "Nº Pagamentos", "Valor Parcela (R$)"
     ])
 if 'equip' not in st.session_state: st.session_state.equip = []
 
