@@ -1,4 +1,5 @@
 import streamlit as st
+import pandas as pd
 import openpyxl
 from io import BytesIO
 import pdfplumber
@@ -36,10 +37,12 @@ FONTES_OPCOES = [
 ]
 
 # Inicialização de memória do Streamlit
-if 'eq_vinc' not in st.session_state: st.session_state.eq_vinc = []
-if 'eq_nao_vinc' not in st.session_state: st.session_state.eq_nao_vinc = []
+if 'df_equipe' not in st.session_state: 
+    st.session_state.df_equipe = pd.DataFrame(columns=[
+        "Vinculado à UFSM?", "Tipo Remuneração", "Nome", "SIAPE ou Forma Contratação", 
+        "CPF", "Carga Horária", "Nº Pagamentos", "Valor Parcela (R$)"
+    ])
 if 'equip' not in st.session_state: st.session_state.equip = []
-if 'nomes_pdf' not in st.session_state: st.session_state.nomes_pdf = []
 
 col_config_dinheiro = {
     "Valor Parcela": st.column_config.NumberColumn(format="R$ %.2f"),
@@ -47,10 +50,8 @@ col_config_dinheiro = {
     "Valor Unitário": st.column_config.NumberColumn(format="R$ %.2f")
 }
 
-# Zera as variáveis de total a cada recarregamento da tela
 total_base_infra = 0.0 
 total_obras_equip = 0.0
-
 
 # ==========================================
 # SELETOR DE FUNDAÇÃO (TOPO DA BARRA LATERAL)
@@ -61,7 +62,6 @@ fundacao_escolhida = st.sidebar.selectbox(
     help="As taxas e cálculos são ajustados automaticamente de acordo com as regras de cada fundação."
 )
 st.sidebar.divider()
-
 
 # ==========================================
 # ÁREA PRINCIPAL
@@ -103,8 +103,26 @@ if arquivo_pdf:
                     nome_final = nome_limpo[:corte_idx].strip(" -/")
                     if len(nome_final) > 2: nomes.append(nome_final)
                 
-                st.session_state.nomes_pdf = list(dict.fromkeys(nomes)) # Remove duplicatas
-                st.success(f"✅ {len(st.session_state.nomes_pdf)} participantes encontrados no PDF!")
+                nomes_extraidos = list(dict.fromkeys(nomes)) # Remove duplicatas
+                
+                # Injeta os nomes na tabela se eles ainda não estiverem lá
+                if nomes_extraidos:
+                    df_atual = st.session_state.df_equipe
+                    nomes_existentes = df_atual["Nome"].tolist() if not df_atual.empty else []
+                    
+                    novos_registros = []
+                    for n in nomes_extraidos:
+                        if n not in nomes_existentes:
+                            novos_registros.append({
+                                "Vinculado à UFSM?": True, "Tipo Remuneração": "", "Nome": n,
+                                "SIAPE ou Forma Contratação": "", "CPF": "", "Carga Horária": 0,
+                                "Nº Pagamentos": 1, "Valor Parcela (R$)": 0.0
+                            })
+                    
+                    if novos_registros:
+                        df_novos = pd.DataFrame(novos_registros)
+                        st.session_state.df_equipe = pd.concat([df_atual, df_novos], ignore_index=True)
+                        st.success(f"✅ {len(novos_registros)} participantes encontrados e adicionados à tabela abaixo!")
             else:
                 st.warning("Nenhum bloco de participantes encontrado no PDF.")
         except Exception as e:
@@ -112,83 +130,72 @@ if arquivo_pdf:
 
 st.divider()
 
-# --- 1. EQUIPES ---
+# --- 1. EQUIPES (NOVA TABELA INTERATIVA) ---
 st.header("1. Equipe Executora")
-opcoes_nomes = ["(Digitar nome manualmente)"] + st.session_state.nomes_pdf
+st.write("Preencha os dados abaixo. Desmarque a caixinha **'Vinculado à UFSM?'** para colaboradores externos. Você pode adicionar novas pessoas clicando na última linha em branco.")
 
-with st.expander("Equipe Vinculada à UFSM", expanded=True):
-    with st.form("form_vinc", clear_on_submit=True):
-        c1, c2 = st.columns(2)
-        tipo_remun = c1.text_input("Pessoal Envolvido (Tipo de Remuneração)")
-        nome_selecionado = c2.selectbox("Nome do Membro (Selecione do PDF ou digite)", opcoes_nomes)
-        nome_digitado = c2.text_input("Se escolheu digitar manualmente, informe o nome aqui:")
-        
-        c3, c4 = st.columns(2)
-        siape_mat = c3.text_input("SIAPE / Matrícula")
-        cpf_vinc = c4.text_input("CPF")
-        
-        c5, c6, c7 = st.columns(3)
-        ch_vinc = c5.number_input("Carga Horária (Semanal)", min_value=0, step=1)
-        qtd_vinc = c6.number_input("Nº de Pagamentos", min_value=1, step=1)
-        valor_vinc = c7.number_input("Valor de cada Pagto (R$)", min_value=0.0, step=100.0)
-        
-        if st.form_submit_button("Adicionar à Equipe Vinculada"):
-            nome_final = nome_digitado if nome_selecionado == "(Digitar nome manualmente)" else nome_selecionado
-            if nome_final:
-                st.session_state.eq_vinc.append({
-                    "Tipo Remuneração": tipo_remun, "Nome": nome_final, "SIAPE/MAT": siape_mat, 
-                    "CPF": cpf_vinc, "Carga Horária": ch_vinc, "Nº Pagamentos": qtd_vinc,
-                    "Valor Parcela": valor_vinc, "Total": valor_vinc * qtd_vinc
-                })
-                st.rerun()
-                
-    if st.session_state.eq_vinc: 
-        st.dataframe(st.session_state.eq_vinc, column_config=col_config_dinheiro, hide_index=True, use_container_width=True)
+configuracao_colunas = {
+    "Vinculado à UFSM?": st.column_config.CheckboxColumn("Vinculado à UFSM?", default=True, width="small"),
+    "Valor Parcela (R$)": st.column_config.NumberColumn("Valor Parcela (R$)", format="R$ %.2f", min_value=0.0),
+    "Carga Horária": st.column_config.NumberColumn("Carga Horária", min_value=0, step=1),
+    "Nº Pagamentos": st.column_config.NumberColumn("Nº Pagamentos", min_value=1, step=1)
+}
 
-with st.expander("Equipe Não Vinculada"):
-    with st.form("form_nao_vinc", clear_on_submit=True):
-        c1, c2 = st.columns(2)
-        tipo_remun_nv = c1.text_input("Pessoal Envolvido (Tipo de Remuneração)")
-        nome_selecionado_nv = c2.selectbox("Nome do Colaborador", opcoes_nomes)
-        nome_digitado_nv = c2.text_input("Se escolheu digitar manualmente, informe o nome aqui:")
-        
-        c3, c4 = st.columns(2)
-        forma_contrato = c3.text_input("Forma de Contratação (Ex: CLT, RPA)")
-        cpf_nvinc = c4.text_input("CPF")
-        
-        c5, c6, c7 = st.columns(3)
-        ch_nvinc = c5.number_input("Carga Horária (Semanal)", min_value=0, step=1)
-        qtd_nvinc = c6.number_input("Nº de Pagamentos", min_value=1, step=1)
-        valor_nvinc = c7.number_input("Valor de cada Pagto (R$)", min_value=0.0, step=100.0)
-        
-        if st.form_submit_button("Adicionar à Equipe Não Vinculada"):
-            nome_final_nv = nome_digitado_nv if nome_selecionado_nv == "(Digitar nome manualmente)" else nome_selecionado_nv
-            if nome_final_nv:
-                st.session_state.eq_nao_vinc.append({
-                    "Tipo Remuneração": tipo_remun_nv, "Nome": nome_final_nv, "Forma Contratação": forma_contrato, 
-                    "CPF": cpf_nvinc, "Carga Horária": ch_nvinc, "Nº Pagamentos": qtd_nvinc,
-                    "Valor Parcela": valor_nvinc, "Total": valor_nvinc * qtd_nvinc
-                })
-                st.rerun()
-                
-    if st.session_state.eq_nao_vinc: 
-        st.dataframe(st.session_state.eq_nao_vinc, column_config=col_config_dinheiro, hide_index=True, use_container_width=True)
+# Tabela Editável
+df_editado = st.data_editor(
+    st.session_state.df_equipe,
+    num_rows="dynamic",
+    use_container_width=True,
+    hide_index=True,
+    column_config=configuracao_colunas,
+    key="editor_equipe"
+)
 
-# Soma Equipes na Base de Infraestrutura UFSM
+# Salva as edições e prepara as listas pro Excel
+st.session_state.df_equipe = df_editado
+st.session_state.eq_vinc = []
+st.session_state.eq_nao_vinc = []
+
+for index, row in df_editado.iterrows():
+    nome = str(row.get("Nome", "")).strip()
+    if not nome or nome == "nan": continue
+    
+    try: pagamentos = int(row.get("Nº Pagamentos", 1))
+    except: pagamentos = 1
+    try: valor = float(row.get("Valor Parcela (R$)", 0.0))
+    except: valor = 0.0
+    try: ch = int(row.get("Carga Horária", 0))
+    except: ch = 0
+    
+    total_participante = pagamentos * valor
+    
+    participante = {
+        "Tipo Remuneração": str(row.get("Tipo Remuneração", "")).strip(),
+        "Nome": nome,
+        "SIAPE/MAT" if row.get("Vinculado à UFSM?", True) else "Forma Contratação": str(row.get("SIAPE ou Forma Contratação", "")).strip(),
+        "CPF": str(row.get("CPF", "")).strip(),
+        "Carga Horária": ch,
+        "Nº Pagamentos": pagamentos,
+        "Valor Parcela": valor,
+        "Total": total_participante
+    }
+    
+    if row.get("Vinculado à UFSM?", True):
+        st.session_state.eq_vinc.append(participante)
+    else:
+        st.session_state.eq_nao_vinc.append(participante)
+
 total_base_infra += sum(item["Total"] for item in st.session_state.eq_vinc)
 total_base_infra += sum(item["Total"] for item in st.session_state.eq_nao_vinc)
 
-
 # --- 2. DESPESAS E SERVIÇOS ---
 st.header("2. Despesas e Serviços")
-
 def renderizar_tabela_fixa(titulo, lista_itens, prefixo_chave):
     valores = {}
     with st.expander(titulo):
         for item in lista_itens:
             val = st.number_input(f"{item} (R$)", min_value=0.0, step=50.0, key=f"{prefixo_chave}_{item}")
-            if val > 0: 
-                valores[item] = val
+            if val > 0: valores[item] = val
     return valores
 
 dados_diarias = renderizar_tabela_fixa("4.2 - Diárias", LISTA_DIARIAS, "diaria")
@@ -198,13 +205,9 @@ dados_passagens = renderizar_tabela_fixa("4.5 - Passagens e Locomoção", LISTA_
 dados_consumo = renderizar_tabela_fixa("4.6 - Material de Consumo", LISTA_CONSUMO, "cons")
 dados_obras = renderizar_tabela_fixa("4.8 - Obras e Instalações (Isento de Taxa UFSM)", LISTA_OBRAS, "obras")
 
-# Soma Despesas de Custeio na base da UFSM
 for d in [dados_diarias, dados_pj, dados_pf, dados_passagens, dados_consumo]: 
     total_base_infra += sum(d.values())
-
-# Obras vão para a Base Isenta (Capital)
 total_obras_equip += sum(dados_obras.values())
-
 
 # --- 3. ANEXO I (Equipamentos) ---
 st.header("3. Anexo I - Material Permanente")
@@ -222,11 +225,8 @@ with st.expander("Equipamento Permanente (Isento de Taxa UFSM)", expanded=True):
     if st.session_state.equip: 
         st.dataframe(st.session_state.equip, column_config=col_config_dinheiro, hide_index=True, use_container_width=True)
 
-# Equipamentos vão para a Base Isenta (Capital)
 total_obras_equip += sum(item["Total"] for item in st.session_state.equip)
-
 st.divider()
-
 
 # --- 4. SEÇÃO 3.1 - FONTES DE RECURSOS ---
 st.header("4. Fontes e Usos (Seção 3)")
@@ -238,7 +238,6 @@ with st.expander("3.1 - FONTES (Especificação dos Recursos)", expanded=True):
         chk = st.checkbox(op)
         escolhas_fontes[op] = chk
         
-        # Condicional dinâmica para abrir campos de Título e Registro
         if chk and "previsto no projeto de prestação de serviços abaixo" in op:
             st.info("Informe os dados do projeto de prestação de serviços que aportará recursos:")
             titulo_fonte = st.text_input("Título do Projeto de Prestação de Serviços (Fonte):")
@@ -247,7 +246,6 @@ with st.expander("3.1 - FONTES (Especificação dos Recursos)", expanded=True):
             if "previsto no projeto de prestação de serviços abaixo" in op:
                 titulo_fonte = ""
                 registro_fonte = ""
-
 
 # --- 5. SEÇÃO 4 - PLANO DE APLICAÇÃO ---
 with st.expander("4 - PLANO DE APLICAÇÃO (Apenas Prestação de Serviços)", expanded=True):
@@ -260,7 +258,6 @@ with st.expander("4 - PLANO DE APLICAÇÃO (Apenas Prestação de Serviços)", e
     else:
         titulo_aplicacao = ""
         registro_aplicacao = ""
-
 
 # --- 6. SEÇÃO 6 - CRONOGRAMA DE DESEMBOLSO ---
 with st.expander("6 - CRONOGRAMA DE DESEMBOLSO", expanded=True):
@@ -281,15 +278,12 @@ with st.expander("6 - CRONOGRAMA DE DESEMBOLSO", expanded=True):
 # ==========================================
 subtotal_projeto = total_base_infra + total_obras_equip
 
-# Taxa Infra UFSM
 taxa_ufsm = 0.08 if total_base_infra > 200000 else 0.05
 valor_infra_ufsm = total_base_infra * taxa_ufsm
 
-# Taxa Operacional Fundação
 if fundacao_escolhida in ["FATEC", "FDMS"]:
     valor_taxa_fundacao = subtotal_projeto * 0.10
 else:
-    # Gross-up para FAURGS e FUNDEP
     valor_taxa_fundacao = ((subtotal_projeto + valor_infra_ufsm) / 0.9) * 0.10
 
 total_geral_final = subtotal_projeto + valor_infra_ufsm + valor_taxa_fundacao
@@ -339,12 +333,10 @@ with st.sidebar:
             else:
                 ws.append(["Nenhum item preenchido"])
 
-        # Identificador para o Raichu
         ws_config = wb.create_sheet("Config_Raichu")
         ws_config.append(["Fundacao_Escolhida", fundacao_escolhida])
         ws_config.append(["Cronograma_Tipo", tipo_cronograma])
         
-        # Abas das Equipes e Tabelas Fixas
         criar_aba_dinamica("Equipe_Vinc", st.session_state.eq_vinc)
         criar_aba_dinamica("Equipe_Nao_Vinc", st.session_state.eq_nao_vinc)
         criar_aba_fixa("Diarias", dados_diarias)
@@ -355,18 +347,15 @@ with st.sidebar:
         criar_aba_fixa("Obras", dados_obras)
         criar_aba_dinamica("Anexo_1", st.session_state.equip)
 
-        # Aba de Fontes (3.1)
         ws_fontes = wb.create_sheet("Fontes_3.1")
         ws_fontes.append(["Fonte", "Selecionado", "Título (Se Prestação)", "Registro (Se Prestação)"])
         for op, checked in escolhas_fontes.items():
             if checked:
-                # Se for a opção de prestação e estiver marcada, manda os textos extras
                 if "previsto no projeto de prestação" in op:
                     ws_fontes.append([op, "X", titulo_fonte, registro_fonte])
                 else:
                     ws_fontes.append([op, "X", "", ""])
 
-        # Aba Plano de Aplicação (4)
         ws_aplicacao = wb.create_sheet("Aplicacao_4")
         ws_aplicacao.append(["Possui_Aporte", "Titulo_Recebedor", "Registro_Recebedor"])
         if aplica_recursos:
@@ -374,7 +363,6 @@ with st.sidebar:
         else:
             ws_aplicacao.append(["Nao", "", ""])
 
-        # Aba Cronograma (6)
         criar_aba_dinamica("Cronograma_6", cronograma_dados)
 
         output = BytesIO()
