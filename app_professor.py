@@ -50,8 +50,10 @@ col_config_dinheiro = {
     "Valor Unitário": st.column_config.NumberColumn(format="R$ %.2f")
 }
 
+# Zera as variáveis de total a cada recarregamento da tela
 total_base_infra = 0.0 
 total_obras_equip = 0.0
+
 
 # ==========================================
 # SELETOR DE FUNDAÇÃO (TOPO DA BARRA LATERAL)
@@ -63,14 +65,15 @@ fundacao_escolhida = st.sidebar.selectbox(
 )
 st.sidebar.divider()
 
+
 # ==========================================
 # ÁREA PRINCIPAL
 # ==========================================
 st.title("💰 Gerador de Dados Financeiros (Plano de Trabalho)")
 
 # --- PASSO 0: LEITOR DE PDF (OPCIONAL) ---
-st.markdown("### 📄 Passo 0: Autopreenchimento de Nomes (Opcional)")
-arquivo_pdf = st.file_uploader("Insira o Relatório do Projeto (.PDF) para extrair os nomes da equipe automaticamente:", type=["pdf"])
+st.markdown("### 📄 Passo 0: Autopreenchimento da Equipe (Opcional)")
+arquivo_pdf = st.file_uploader("Insira o Relatório do Projeto (.PDF) para extrair os nomes e SIAPEs da equipe automaticamente:", type=["pdf"])
 
 if arquivo_pdf:
     with st.spinner("Lendo participantes do PDF..."):
@@ -92,37 +95,49 @@ if arquivo_pdf:
                         if pos < end_idx: end_idx = pos
                 bloco = texto_limpo[idx:end_idx].strip()
                 
+                # Extrai o SIAPE (grupo 1) e o NOME (grupo 2)
                 matches = re.finditer(r'(\d{5,15})\s*-\s*([A-ZÀ-Ÿ\s\']+?)\s*(?=[A-ZÀ-Ÿ][a-zà-ÿ]|UNIDADES VINCULADAS|CLASSIFICAÇÕES|$)', bloco)
-                nomes = []
+                
+                participantes_extraidos = []
                 for match in matches:
+                    siape_pdf = match.group(1).strip()
                     nome_limpo = re.sub(r'\s+', ' ', match.group(2).strip()).strip()
                     corte_idx = len(nome_limpo)
+                    
                     for p in ["VÍNCULO", "VINCULO", "CURSO", "LOTAÇÃO", "LOTACAO", "FUNÇÃO", "FUNCAO"]:
                         idx_p = nome_limpo.upper().find(p)
                         if idx_p != -1 and idx_p < corte_idx: corte_idx = idx_p
+                        
                     nome_final = nome_limpo[:corte_idx].strip(" -/")
-                    if len(nome_final) > 2: nomes.append(nome_final)
+                    if len(nome_final) > 2: 
+                        participantes_extraidos.append({"nome": nome_final, "siape": siape_pdf})
                 
-                nomes_extraidos = list(dict.fromkeys(nomes)) # Remove duplicatas
+                # Remove duplicatas mantendo o SIAPE
+                participantes_unicos = []
+                nomes_vistos = set()
+                for p in participantes_extraidos:
+                    if p["nome"] not in nomes_vistos:
+                        nomes_vistos.add(p["nome"])
+                        participantes_unicos.append(p)
                 
                 # Injeta os nomes na tabela se eles ainda não estiverem lá
-                if nomes_extraidos:
+                if participantes_unicos:
                     df_atual = st.session_state.df_equipe
                     nomes_existentes = df_atual["Nome"].tolist() if not df_atual.empty else []
                     
                     novos_registros = []
-                    for n in nomes_extraidos:
-                        if n not in nomes_existentes:
+                    for p in participantes_unicos:
+                        if p["nome"] not in nomes_existentes:
                             novos_registros.append({
-                                "Vinculado à UFSM?": True, "Tipo Remuneração": "", "Nome": n,
-                                "SIAPE ou Forma Contratação": "", "CPF": "", "Carga Horária": 0,
+                                "Vinculado à UFSM?": True, "Tipo Remuneração": "", "Nome": p["nome"],
+                                "SIAPE ou Forma Contratação": p["siape"], "CPF": "", "Carga Horária": 0,
                                 "Nº Pagamentos": 1, "Valor Parcela (R$)": 0.0
                             })
                     
                     if novos_registros:
                         df_novos = pd.DataFrame(novos_registros)
                         st.session_state.df_equipe = pd.concat([df_atual, df_novos], ignore_index=True)
-                        st.success(f"✅ {len(novos_registros)} participantes encontrados e adicionados à tabela abaixo!")
+                        st.success(f"✅ {len(novos_registros)} participantes (com SIAPE) encontrados e adicionados à tabela abaixo!")
             else:
                 st.warning("Nenhum bloco de participantes encontrado no PDF.")
         except Exception as e:
