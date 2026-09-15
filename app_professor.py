@@ -18,7 +18,7 @@ LISTA_PF = ["Direitos autorais", "Serviços técnicos profissionais", "Serviços
 LISTA_PASSAGENS = ["Passagens para o país", "Passagens para o exterior", "Locação de meios de transportes", "Locomoção urbana", "Outras despesas com locomoção"]
 LISTA_OBRAS = ["Estudos e Projetos", "Obras em andamento", "Instalações", "Almoxarifado de obras", "Outras obras e instalações"]
 LISTA_PJ = [
-    "Assinaturas de periódicos e anuidades", "Direitos autorais", "Serviços técnicos profissionais", "Manutenção de software", "Locação de imóveis", "Locação de softwares", "Locação de máquinas e equipamentos", "Locação de bens Mov. Out. naturezas e intangíveis", "Manutenção e conservação de bens imóveis", "Manutenção e conservação de máquinas e equipamentos", "Serviço de estacionamento de veículos", "Manutenção e conservação de veículos", "Exposições, congressos e conferências", "Confecção de uniformes", "Desenvolvimento de software", "Suporte de infraestrutura de TI", "Suporte a usuários de TI", "Hospedagem de sistemas", "Locação de equipamentos de processamento de dados", "Fornecimento de alimentação", "Serviços de energia elétrica", "Serviços de água e esgoto", "Serviços de comunicação em geral", "Serviços médico-hospitalar, odontológicos e laboratoriais", "Serviços de análises e pesquisas científicas", "Serviços de tecnologia da informação", "Serviços de telecomunicações", "Serviços de áudio, vídeo e foto", "Serviços de produção industrial", "Serviços gráficos e editoriais", "Seguros em geral", "Confecção de material de acondicionamento e embalagem", "Vale-transporte", "Fretes e transportes de encomendas", "Serviço de apoio administrativo, técnico e operacional", "Hospedagens", "Serviços de cópias e reprodução de documentos", "Serviços de publicidade legal", "Aquisição de softwares sob encomenda", "Manutenção e conservação de equip. de processamento de dados", "Comunicação de dados", "Testes e confecções de placas relacionadas ao objeto do projeto", "Outros serviços de terceiros pessoa jurídica"
+    "Assinaturas de periódicos e anuidades", "Direitos autorais", "Serviços técnicos profissionais", "Manutenção de software", "Locação de imóveis", "Locação de softwares", "Locação de máquinas e equipamentos", "Locação de bens Mov. Out. naturezas e intangíveis", "Manutenção e conservação de bens imóveis", "Manutenção e conservação de máquinas e equipamentos", "Serviço de estacionamento de veículos", "Manutenção e conservação de veículos", "Exposições, congressos e conferências", "Confecção de uniformes", "Desenvolvimento de software", "Suporte de infraestrutura de TI", "Suporte a usuários de TI", "Hospedagem de sistemas", "Locação de equipamentos de processamento de dados", "Fornecimento de alimentação", "Serviços de energia elétrica", "Serviços de água e esgoto", "Serviços de comunicação em geral", "Serviços médico-hospitalar, odontológicos e laboratoriais", "Serviços de análises e pesquisas científicas", "Serviços de tecnologia da informação", "Serviços de telecomunicações", "Serviços de áudio, vídeo e foto", "Serviços de produção industrial", "Serviços gráficos e editoriais", "Seguros em geral", "Confecção de material de acondicionamento e embalagem", "Vale-transporte", "Fretes e transportes de encomendas", "Serviço de apoio administrativo, técnico e operacional", "Hospagens", "Serviços de cópias e reprodução de documentos", "Serviços de publicidade legal", "Aquisição de softwares sob encomenda", "Manutenção e conservação de equip. de processamento de dados", "Comunicação de dados", "Testes e confecções de placas relacionadas ao objeto do projeto", "Outros serviços de terceiros pessoa jurídica"
 ]
 LISTA_CONSUMO = [
     "Combustíveis e lubrificantes automotivos", "Gás e outros materiais engarrafados", "Alimentos para animais", "Gêneros de alimentação", "Animais para pesquisa e abate", "Material farmacológico", "Material odontológico", "Material químico", "Material educativo e esportivo", "Material de expediente", "Material de processamento de dados", "Materiais e medicamentos para uso veterinário", "Material de acondicionamento e embalagem", "Material de copa e cozinha", "Material de limpeza e produtos de higienização", "Uniformes, tecidos e aviamentos", "Material para manutenção de bens imóveis/instalações", "Material para manutenção de bens móveis", "Material elétrico e eletrônico", "Material de proteção e segurança", "Material para áudio, vídeo e foto", "Material para comunicações", "Sementes, mudas de plantas e insumos", "Material para produção industrial", "Material laboratorial", "Material hospitalar", "Material para manutenção de veículos", "Material biológico", "Material para utilização em gráfica", "Ferramentas", "Material de sinalização visual e outros", "Material bibliográfico", "Aquisição de software - produto", "Material para divulgação", "Materiais de Consumo para utilização no laboratório", "Outros Materiais de Consumo"
@@ -36,11 +36,10 @@ FONTES_OPCOES = [
     "do repasse de outras fontes de recursos orçamentários da União (TED)"
 ]
 
-# Inicialização de memória do Streamlit
 if 'df_equipe' not in st.session_state: 
     st.session_state.df_equipe = pd.DataFrame(columns=[
         "Vinculado à UFSM?", "Tipo Remuneração", "Nome", "SIAPE ou Forma Contratação", 
-        "CPF", "Carga Horária (semanal)", "Nº Pagamentos", "Valor Parcela (R$)"
+        "CPF", "Carga Horária", "Nº Pagamentos", "Valor Parcela (R$)"
     ])
 if 'equip' not in st.session_state: st.session_state.equip = []
 
@@ -50,14 +49,9 @@ col_config_dinheiro = {
     "Valor Unitário": st.column_config.NumberColumn(format="R$ %.2f")
 }
 
-# Zera as variáveis de total a cada recarregamento da tela
 total_base_infra = 0.0 
 total_obras_equip = 0.0
 
-
-# ==========================================
-# SELETOR DE FUNDAÇÃO (TOPO DA BARRA LATERAL)
-# ==========================================
 fundacao_escolhida = st.sidebar.selectbox(
     "🏛️ Selecione a Fundação",
     ["FATEC", "FAURGS", "FUNDEP", "FDMS"],
@@ -65,13 +59,8 @@ fundacao_escolhida = st.sidebar.selectbox(
 )
 st.sidebar.divider()
 
-
-# ==========================================
-# ÁREA PRINCIPAL
-# ==========================================
 st.title("💰 Gerador de Dados Financeiros (Plano de Trabalho)")
 
-# --- PASSO 0: LEITOR DE PDF (OPCIONAL) ---
 st.markdown("### 📄 Passo 0: Autopreenchimento da Equipe (Opcional)")
 arquivo_pdf = st.file_uploader("Insira o Relatório do Projeto (.PDF) para extrair os nomes e SIAPEs da equipe automaticamente:", type=["pdf"])
 
@@ -95,7 +84,6 @@ if arquivo_pdf:
                         if pos < end_idx: end_idx = pos
                 bloco = texto_limpo[idx:end_idx].strip()
                 
-                # Extrai o SIAPE (grupo 1) e o NOME (grupo 2)
                 matches = re.finditer(r'(\d{5,15})\s*-\s*([A-ZÀ-Ÿ\s\']+?)\s*(?=[A-ZÀ-Ÿ][a-zà-ÿ]|UNIDADES VINCULADAS|CLASSIFICAÇÕES|$)', bloco)
                 
                 participantes_extraidos = []
@@ -112,7 +100,6 @@ if arquivo_pdf:
                     if len(nome_final) > 2: 
                         participantes_extraidos.append({"nome": nome_final, "siape": siape_pdf})
                 
-                # Remove duplicatas mantendo o SIAPE
                 participantes_unicos = []
                 nomes_vistos = set()
                 for p in participantes_extraidos:
@@ -120,7 +107,6 @@ if arquivo_pdf:
                         nomes_vistos.add(p["nome"])
                         participantes_unicos.append(p)
                 
-                # Injeta os nomes na tabela se eles ainda não estiverem lá
                 if participantes_unicos:
                     df_atual = st.session_state.df_equipe
                     nomes_existentes = df_atual["Nome"].tolist() if not df_atual.empty else []
@@ -145,7 +131,6 @@ if arquivo_pdf:
 
 st.divider()
 
-# --- 1. EQUIPES (NOVA TABELA INTERATIVA) ---
 st.header("1. Equipe Executora")
 st.write("Preencha os dados abaixo. Desmarque a caixinha **'Vinculado à UFSM?'** para colaboradores externos. Você pode adicionar novas pessoas clicando na última linha em branco.")
 
@@ -156,7 +141,6 @@ configuracao_colunas = {
     "Nº Pagamentos": st.column_config.NumberColumn("Nº Pagamentos", min_value=1, step=1)
 }
 
-# Tabela Editável
 df_editado = st.data_editor(
     st.session_state.df_equipe,
     num_rows="dynamic",
@@ -166,7 +150,6 @@ df_editado = st.data_editor(
     key="editor_equipe"
 )
 
-# Salva as edições e prepara as listas pro Excel
 st.session_state.df_equipe = df_editado
 st.session_state.eq_vinc = []
 st.session_state.eq_nao_vinc = []
@@ -203,7 +186,6 @@ for index, row in df_editado.iterrows():
 total_base_infra += sum(item["Total"] for item in st.session_state.eq_vinc)
 total_base_infra += sum(item["Total"] for item in st.session_state.eq_nao_vinc)
 
-# --- 2. DESPESAS E SERVIÇOS ---
 st.header("2. Despesas e Serviços")
 def renderizar_tabela_fixa(titulo, lista_itens, prefixo_chave):
     valores = {}
@@ -224,7 +206,6 @@ for d in [dados_diarias, dados_pj, dados_pf, dados_passagens, dados_consumo]:
     total_base_infra += sum(d.values())
 total_obras_equip += sum(dados_obras.values())
 
-# --- 3. ANEXO I (Equipamentos) ---
 st.header("3. Anexo I - Material Permanente")
 with st.expander("Equipamento Permanente (Isento de Taxa UFSM)", expanded=True):
     with st.form("form_equip", clear_on_submit=True):
@@ -243,10 +224,9 @@ with st.expander("Equipamento Permanente (Isento de Taxa UFSM)", expanded=True):
 total_obras_equip += sum(item["Total"] for item in st.session_state.equip)
 st.divider()
 
-# --- 4. SEÇÃO 3.1 - FONTES DE RECURSOS ---
 st.header("4. Fontes e Usos (Seção 3)")
 with st.expander("3.1 - FONTES (Especificação dos Recursos)", expanded=True):
-    st.write("Marque com um 'X' (selecione) as origens do dinheiro deste projeto. O total do projeto será associado a elas.")
+    st.write("Marque com um 'X' (selecione) as origens do dinheiro deste projeto. O valor total do projeto será associado a elas no formulário final.")
     escolhas_fontes = {}
     
     for op in FONTES_OPCOES:
@@ -262,19 +242,20 @@ with st.expander("3.1 - FONTES (Especificação dos Recursos)", expanded=True):
                 titulo_fonte = ""
                 registro_fonte = ""
 
-# --- 5. SEÇÃO 4 - PLANO DE APLICAÇÃO ---
 with st.expander("4 - PLANO DE APLICAÇÃO (Apenas Prestação de Serviços)", expanded=True):
-    st.write("Marque a caixa abaixo SOMENTE se este for um projeto de prestação de serviços que vai investir/aportar recursos em um outro projeto de Pesquisa, Ensino ou Extensão.")
+    st.write("Marque a caixa abaixo SOMENTE se este for um projeto de prestação de serviços que vai investir/aportar recursos em um outro projeto.")
     aplica_recursos = st.checkbox("Este projeto receberá aportes de recursos de outro?")
     if aplica_recursos:
-        st.info("Informe os dados do projeto de Pesquisa, Ensino ou Extensão que receberá os recursos:")
-        titulo_aplicacao = st.text_input("Título do projeto recebedor:")
-        registro_aplicacao = st.text_input("Nº de Registro do projeto recebedor:")
+        st.info("Informe os dados e o valor do projeto de Pesquisa, Ensino ou Extensão que receberá os recursos:")
+        col_a1, col_a2 = st.columns(2)
+        titulo_aplicacao = col_a1.text_input("Título do projeto recebedor:")
+        registro_aplicacao = col_a2.text_input("Nº de Registro do projeto recebedor:")
+        valor_aplicacao = st.number_input("Valor a ser investido/recebido (R$):", min_value=0.0, step=1000.0)
     else:
         titulo_aplicacao = ""
         registro_aplicacao = ""
+        valor_aplicacao = 0.0
 
-# --- 6. SEÇÃO 6 - CRONOGRAMA DE DESEMBOLSO ---
 with st.expander("6 - CRONOGRAMA DE DESEMBOLSO", expanded=True):
     st.write("Escolha apenas UMA opção de período e preencha os valores.")
     tipo_cronograma = st.radio("Período de Desembolso:", ["Mensal", "Semestral", "Anual"], horizontal=True)
@@ -302,7 +283,6 @@ else:
     valor_taxa_fundacao = ((subtotal_projeto + valor_infra_ufsm) / 0.9) * 0.10
 
 total_geral_final = subtotal_projeto + valor_infra_ufsm + valor_taxa_fundacao
-
 
 # ==========================================
 # RENDERIZAÇÃO DA BARRA LATERAL (Cálculos de 3.2 - USOS)
@@ -351,6 +331,7 @@ with st.sidebar:
         ws_config = wb.create_sheet("Config_Raichu")
         ws_config.append(["Fundacao_Escolhida", fundacao_escolhida])
         ws_config.append(["Cronograma_Tipo", tipo_cronograma])
+        ws_config.append(["Total_Geral", total_geral_final]) # Salvando o total para a seção 3.1
         
         criar_aba_dinamica("Equipe_Vinc", st.session_state.eq_vinc)
         criar_aba_dinamica("Equipe_Nao_Vinc", st.session_state.eq_nao_vinc)
@@ -372,11 +353,11 @@ with st.sidebar:
                     ws_fontes.append([op, "X", "", ""])
 
         ws_aplicacao = wb.create_sheet("Aplicacao_4")
-        ws_aplicacao.append(["Possui_Aporte", "Titulo_Recebedor", "Registro_Recebedor"])
+        ws_aplicacao.append(["Possui_Aporte", "Titulo_Recebedor", "Registro_Recebedor", "Valor_Aplicacao"])
         if aplica_recursos:
-            ws_aplicacao.append(["Sim", titulo_aplicacao, registro_aplicacao])
+            ws_aplicacao.append(["Sim", titulo_aplicacao, registro_aplicacao, valor_aplicacao])
         else:
-            ws_aplicacao.append(["Nao", "", ""])
+            ws_aplicacao.append(["Nao", "", "", 0])
 
         criar_aba_dinamica("Cronograma_6", cronograma_dados)
 
