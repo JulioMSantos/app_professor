@@ -84,19 +84,14 @@ if arquivo_pdf:
                         if pos < end_idx: end_idx = pos
                 bloco = texto_limpo[idx:end_idx].strip()
                 
-                matches = re.finditer(r'(\d{5,15})\s*-\s*([A-ZÀ-Ÿ\s\']+?)\s*(?=[A-ZÀ-Ÿ][a-zà-ÿ]|UNIDADES VINCULADAS|CLASSIFICAÇÕES|$)', bloco)
+                # NOVO SCANNER BLINDADO CONTRA CHEFIAS
+                pattern = r'(\d{5,15})\s*-\s*([A-ZÀ-Ÿ\s\']+?)\s+(Docente|Técnico[- ]Administrativo|Estudante|Pesquisador|Participante Externo|Visitante|Servidor|Outro)'
+                matches = re.finditer(pattern, bloco, re.IGNORECASE)
                 
                 participantes_extraidos = []
                 for match in matches:
                     siape_pdf = match.group(1).strip()
-                    nome_limpo = re.sub(r'\s+', ' ', match.group(2).strip()).strip()
-                    corte_idx = len(nome_limpo)
-                    
-                    for p in ["VÍNCULO", "VINCULO", "CURSO", "LOTAÇÃO", "LOTACAO", "FUNÇÃO", "FUNCAO"]:
-                        idx_p = nome_limpo.upper().find(p)
-                        if idx_p != -1 and idx_p < corte_idx: corte_idx = idx_p
-                        
-                    nome_final = nome_limpo[:corte_idx].strip(" -/")
+                    nome_final = match.group(2).strip()
                     if len(nome_final) > 2: 
                         participantes_extraidos.append({"nome": nome_final, "siape": siape_pdf})
                 
