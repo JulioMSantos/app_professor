@@ -84,7 +84,6 @@ if arquivo_pdf:
                         if pos < end_idx: end_idx = pos
                 bloco = texto_limpo[idx:end_idx].strip()
                 
-                # NOVO SCANNER BLINDADO CONTRA CHEFIAS
                 pattern = r'(\d{5,15})\s*-\s*([A-ZÀ-Ÿ\s\']+?)\s+(Docente|Técnico[- ]Administrativo|Estudante|Pesquisador|Participante Externo|Visitante|Servidor|Outro)'
                 matches = re.finditer(pattern, bloco, re.IGNORECASE)
                 
